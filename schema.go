@@ -129,6 +129,17 @@ func (s *Schema) applyParentSchema() {
 		v.setParent(s)
 		v.applyParentSchema()
 	}
+
+	for _, v := range s.Links {
+		if v.Schema != nil{
+			v.Schema.setParent(s)
+			v.Schema.applyParentSchema()
+		}
+		if v.TargetSchema != nil{
+			v.TargetSchema.setParent(s)
+			v.TargetSchema.applyParentSchema()
+		}
+	}
 }
 
 // BaseURL returns the base URL registered for this schema

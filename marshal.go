@@ -72,6 +72,24 @@ func extractString(s *string, m map[string]interface{}, name string) error {
 	*s = val
 	return nil
 }
+func extractStringWithRequired(s *string, m map[string]interface{}, n string, required bool) error {
+	v, ok := m[n]
+	if !ok {
+		if required {
+			return errors.New("'" + n + "' is required")
+		}
+		return nil
+	}
+
+	switch v.(type) {
+	case string:
+	default:
+		return errors.New("'" + n + "' must be a string")
+	}
+	*s = v.(string)
+
+	return nil
+}
 
 func convertStringList(l *[]string, v interface{}) error {
 	switch val := v.(type) {
@@ -587,6 +605,23 @@ func (s *Schema) Extract(m map[string]interface{}) error {
 		return errors.Wrap(err, "failed to extract 'dependencies'")
 	}
 
+	if err := extractStringWithRequired(&s.PathStart, m, "pathStart", false); err != nil {
+		return err
+	}
+
+	if v, ok := m["links"]; ok {
+		if err := s.Links.Extract(v); err != nil {
+			return err
+		}
+		s.Links.SetParent(s)
+	}
+
+	if v, ok := m["media"]; ok {
+		if err := s.Media.Extract(v); err != nil {
+			return err
+		}
+	}
+
 	if _, ok := m["additionalItems"]; !ok {
 		// doesn't exist. it's an empty schema
 		s.AdditionalItems = &AdditionalItems{}
@@ -650,7 +685,8 @@ func (s *Schema) Extract(m map[string]interface{}) error {
 	s.Extras = make(map[string]interface{})
 	for k, v := range m {
 		switch k {
-		case "id", "title", "description", "required", "$schema", "$ref", "format", "enum", "default", "type", "definitions", "items", "pattern", "minLength", "maxLength", "minItems", "maxItems", "uniqueItems", "maxProperties", "minProperties", "minimum", "exclusiveMinimum", "maximum", "exclusiveMaximum", "multipleOf", "properties", "dependencies", "additionalItems", "additionalProperties", "patternProperties", "allOf", "anyOf", "oneOf", "not":
+		case "id", "title", "description", "required", "$schema", "$ref", "format", "enum", "default", "type", "definitions", "items", "pattern", "minLength", "maxLength", "minItems", "maxItems", "uniqueItems", "maxProperties", "minProperties", "minimum", "exclusiveMinimum", "maximum", "exclusiveMaximum", "multipleOf", "properties", "dependencies", "additionalItems", "additionalProperties", "patternProperties", "allOf", "anyOf", "oneOf", "not",
+			"pathStart", "links", "media":
 			continue
 		}
 		if pdebug.Enabled {
@@ -863,4 +899,106 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(m)
+}
+
+
+func (ll *LinkList) Extract(v interface{}) error {
+	switch v.(type) {
+	case []interface{}:
+	default:
+		return errors.New("value is not a slice")
+	}
+
+	m := v.([]interface{})
+	r := make(LinkList, len(m))
+	for i, e := range m {
+		l1 := Link{}
+		if err := l1.Extract(e); err != nil {
+			return err
+		}
+		r[i] = &l1
+	}
+	*ll = LinkList(r)
+	return nil
+}
+
+func (l *Link) Extract(v interface{}) (err error) {
+	if pdebug.Enabled {
+		g := pdebug.Marker("Link.Extract").BindError(&err)
+		defer g.End()
+	}
+
+	switch v.(type) {
+	case map[string]interface{}:
+	default:
+		return errors.New("value is not a map")
+	}
+
+	m := v.(map[string]interface{})
+
+	if err := extractStringWithRequired(&l.Href, m, "href", true); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&l.Rel, m, "rel", true); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&l.Title, m, "title", false); err != nil {
+		return err
+	}
+	if err := extractStringWithRequired(&l.Description, m, "description", false); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&l.MediaType, m, "mediaType", false); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&l.Method, m, "method", false); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&l.EncType, m, "encType", false); err != nil {
+		return err
+	}
+
+	if err := extractSchema(&l.Schema, m, "schema"); err != nil {
+		return err
+	}
+
+	if err := extractSchema(&l.TargetSchema, m, "targetSchema"); err != nil {
+		return err
+	}
+
+	l.Extras = make(map[string]interface{})
+	for k, v := range m {
+		switch k {
+		case "href", "rel", "title", "description", "targetSchema", "mediaType", "method", "encType", "schema":
+			continue
+		}
+		l.Extras[k] = v
+	}
+
+	return nil
+}
+
+func (m *Media) Extract(v interface{}) error {
+	switch v.(type) {
+	case map[string]interface{}:
+	default:
+		return errors.New("value is not a map")
+	}
+
+	m1 := v.(map[string]interface{})
+
+	if err := extractStringWithRequired(&m.Type, m1, "type", false); err != nil {
+		return err
+	}
+
+	if err := extractStringWithRequired(&m.BinaryEncoding, m1, "binaryEncoding", false); err != nil {
+		return err
+	}
+
+	return nil
 }

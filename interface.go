@@ -131,6 +131,10 @@ type Schema struct {
 	OneOf  SchemaList             `json:"oneOf,omitempty"`
 	Not    *Schema                `json:"not,omitempty"`
 	Extras map[string]interface{} `json:"-"`
+
+	PathStart string   `json:"pathStart,omitempty"`
+	Links     LinkList `json:"links,omitempty"`
+	Media     Media    `json:"media,omitempty"`
 }
 
 // AdditionalItems represents schema for additonalItems
@@ -155,4 +159,54 @@ type DependencyMap struct {
 type ItemSpec struct {
 	TupleMode bool // If this is true, the positions mean something. if false, len(Schemas) should be 1, and we should apply the same schema validation to all elements
 	Schemas   SchemaList
+}
+
+type LinkList []*Link
+type Link struct {
+	parent       *Schema
+	Href         string         `json:"href"`
+	Rel          string         `json:"rel"`
+	Title        string         `json:"title,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	TargetSchema *Schema        `json:"targetSchema,omitempty"`
+	MediaType    string         `json:"mediaType,omitempty"`
+	Method       string         `json:"method,omitempty"`
+	EncType      string         `json:"encType,omitempty"`
+	Schema       *Schema        `json:"schema,omitempty"`
+	Extras      map[string]interface{}
+}
+
+func (ll *LinkList) SetParent(s *Schema) {
+	for _, l := range *ll {
+		l.SetParent(s)
+	}
+}
+
+func (l *Link) SetParent(s *Schema) {
+	l.parent = s
+}
+
+func (l Link) Parent() *Schema {
+	return l.parent
+}
+
+func (l Link) TargetSchemaOrParent() *Schema {
+	if l.TargetSchema == nil {
+		return l.parent
+	}
+
+	return l.TargetSchema
+}
+
+func (l *Link) Path() string {
+	if l.parent != nil {
+		return l.parent.PathStart + l.Href
+	}
+
+	return l.Href
+}
+
+type Media struct {
+	Type           string `json:"type"`
+	BinaryEncoding string `json:"binaryEncoding"`
 }
