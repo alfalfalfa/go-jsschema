@@ -892,6 +892,18 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 		place(m, "dependencies", deps)
 	}
 
+	//PathStart string   `json:"pathStart,omitempty"`
+	placeString(m, "pathStart", string(s.PathStart))
+	//Links     LinkList `json:"links,omitempty"`
+	if len(s.Links) > 0{
+		m["links"] = s.Links
+	}
+	//Media     Media    `json:"media,omitempty"`
+	if s.Media.Type != ""{
+		m["media"] = s.Media
+	}
+
+
 	if x := s.Extras; x != nil {
 		for k, v := range x {
 			m[k] = v
